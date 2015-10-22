@@ -3,7 +3,7 @@ package walker
 import (
 	"errors"
 
-	"github.com/coreos/etcd/client"
+	"github.com/coreos/go-etcd/etcd"
 )
 
 var SkipNode = errors.New("skip this Entry")
@@ -15,18 +15,18 @@ var SkipNode = errors.New("skip this Entry")
 // Walk skips the directory's child nodes entirely.
 // If the function returns SkipNode when invoked on a non-directory key,
 // Walk skips the remaining nodes in the containing directory node.
-type WalkFunc func(n *client.Node) error
+type WalkFunc func(n *etcd.Node) error
 
 // Walk walks the the response, calling walkFn recursively for each Node
 // in the response.
 // The files are walked in lexical order, which makes the output deterministic
 // but means that for very large responses, Walk can be inefficient.
-func Walk(r *client.Response, walkFn WalkFunc) error {
+func Walk(r *etcd.Response, walkFn WalkFunc) error {
 	return walk(r.Node, walkFn)
 }
 
 // walk recursively descends nodes, calling walkFn
-func walk(node *client.Node, walkFn WalkFunc) error {
+func walk(node *etcd.Node, walkFn WalkFunc) error {
 	err := walkFn(node)
 	if err != nil {
 		if node.Dir && err == SkipNode {
