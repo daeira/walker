@@ -7,10 +7,14 @@ import (
 )
 
 type walker struct {
-	solution string
+	solution   string
+	skipLetter string
 }
 
 func (w *walker) appendWalkFn(n *etcd.Node) error {
+	if n.Key == w.skipLetter {
+		return SkipNode
+	}
 	w.solution = w.solution + n.Key
 	return nil
 }
@@ -44,12 +48,22 @@ var r = &etcd.Response{
 }
 
 func TestWalk(t *testing.T) {
-	var solution = "hello etcd"
-	w := new(walker)
-	if err := Walk(r, w.appendWalkFn); err != nil {
-		t.Error(err)
+	var tests = []struct {
+		name       string
+		skipLetter string
+		solution   string
+	}{
+		{"no skip letter", "", "hello etcd"},
+		{"skip letter o", "o", "hell"},
 	}
-	if w.solution != solution {
-		t.Errorf("walk produced wrong solution, got: %s, wanted: %s", w.solution, solution)
+
+	for _, test := range tests {
+		w := &walker{skipLetter: test.skipLetter}
+		if err := Walk(r, w.appendWalkFn); err != nil {
+			t.Error(err)
+		}
+		if w.solution != test.solution {
+			t.Errorf("walk produced wrong solution for test '%s', got: '%s', wanted: '%s'", test.name, w.solution, test.solution)
+		}
 	}
 }
