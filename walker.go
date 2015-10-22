@@ -6,7 +6,7 @@ import (
 	"github.com/coreos/go-etcd/etcd"
 )
 
-var SkipNode = errors.New("skip this Entry")
+var SkipNode = errors.New("skip this node")
 
 // WalkFunc is the type of the function called for each Node
 // visited by Walk.
@@ -19,8 +19,6 @@ type WalkFunc func(n *etcd.Node) error
 
 // Walk walks the the response, calling walkFn recursively for each Node
 // in the response.
-// The files are walked in lexical order, which makes the output deterministic
-// but means that for very large responses, Walk can be inefficient.
 func Walk(r *etcd.Response, walkFn WalkFunc) error {
 	return walk(r.Node, walkFn)
 }
