@@ -6,11 +6,14 @@ import (
 	"github.com/coreos/go-etcd/etcd"
 )
 
+// SkipNode is used as a return value from WalkFuncs to indicate that
+// the node named in the call is to be skipped. It is not returned
+// as an error by any function.
 var SkipNode = errors.New("skip this node")
 
 // WalkFunc is the type of the function called for each Node
 // visited by Walk.
-
+//
 // If the function returns SkipNode when invoked on a directory node,
 // Walk skips the directory's child nodes entirely.
 // If the function returns SkipNode when invoked on a non-directory key,
