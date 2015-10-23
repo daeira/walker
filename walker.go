@@ -50,3 +50,44 @@ func walk(node *etcd.Node, walkFn WalkFunc) error {
 	}
 	return nil
 }
+
+type Entry struct {
+	Plugin string
+	Origin string
+	Value  interface{}
+}
+
+type Converter struct {
+	Plugin string
+	Origin string
+}
+
+func (c *Converter) Convert(m map[string]interface{}) {
+	nm := make(map[string]interface{})
+	for k, v := range m {
+		switch v.(type) {
+		case map[string]interface{}:
+		default:
+			nm[k] = v
+		}
+
+	}
+}
+
+// func convert(plugin string, origin string, v interface{}) {
+func convert(plugin string, origin string, m map[string]interface{}) {
+	for k, v := range m {
+		switch v.(type) {
+		case map[string]interface{}:
+			mp, _ := v.(map[string]interface{})
+			convert(plugin, origin, mp)
+		case []interface{}:
+		default:
+			m[k] = Entry{
+				Plugin: plugin,
+				Origin: origin,
+				Value:  v,
+			}
+		}
+	}
+}
