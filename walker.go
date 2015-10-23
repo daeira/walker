@@ -2,8 +2,12 @@ package walker
 
 import (
 	"errors"
+	"io/ioutil"
+	"os"
+	"path/filepath"
 
 	"github.com/coreos/go-etcd/etcd"
+	"gopkg.in/yaml.v2"
 )
 
 // SkipNode is used as a return value from WalkFuncs to indicate that
@@ -51,43 +55,44 @@ func walk(node *etcd.Node, walkFn WalkFunc) error {
 	return nil
 }
 
-type Entry struct {
-	Plugin string
-	Origin string
-	Value  interface{}
+// TODO: Prioritizer to set priority
+type Source struct {
+	Priority int
+	Plugin   string
+	Origin   string
+	Data     map[interface{}]interface{}
 }
 
-type Converter struct {
-	Plugin string
-	Origin string
-}
+var sources = []Source{}
 
-func (c *Converter) Convert(m map[string]interface{}) {
-	nm := make(map[string]interface{})
-	for k, v := range m {
-		switch v.(type) {
-		case map[string]interface{}:
-		default:
-			nm[k] = v
-		}
-
+func readYAMLWalkFn(path string, info os.FileInfo, err error) error {
+	if err != nil {
+		return err
 	}
-}
-
-// func convert(plugin string, origin string, v interface{}) {
-func convert(plugin string, origin string, m map[string]interface{}) {
-	for k, v := range m {
-		switch v.(type) {
-		case map[string]interface{}:
-			mp, _ := v.(map[string]interface{})
-			convert(plugin, origin, mp)
-		case []interface{}:
-		default:
-			m[k] = Entry{
-				Plugin: plugin,
-				Origin: origin,
-				Value:  v,
-			}
-		}
+	if info.IsDir() {
+		return nil
 	}
+	if filepath.Ext(path) != ".yaml" {
+		return nil
+	}
+	f, err := os.Open(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	data, err := ioutil.ReadAll(f)
+	if err != nil {
+		return err
+	}
+	m := make(map[interface{}]interface{})
+	if err := yaml.Unmarshal(data, &m); err != nil {
+		return err
+	}
+	s := Source{
+		Plugin: "File",
+		Origin: path,
+		Data:   m,
+	}
+	sources = append(sources, s)
+	return nil
 }
