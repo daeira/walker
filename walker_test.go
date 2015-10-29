@@ -1,9 +1,13 @@
 package walker
 
 import (
+	"fmt"
+	"path/filepath"
 	"testing"
 
 	"github.com/coreos/go-etcd/etcd"
+	"github.com/daeira/walker/merger"
+	"gopkg.in/yaml.v2"
 )
 
 type walker struct {
@@ -66,4 +70,24 @@ func TestWalk(t *testing.T) {
 			t.Errorf("walk produced wrong solution for test '%s', got: '%s', wanted: '%s'", test.name, w.solution, test.solution)
 		}
 	}
+}
+
+func TestRead(t *testing.T) {
+	path := "/home/rz/repos/puppet/puppet-foreman/enc/puppet"
+	if err := filepath.Walk(path, readYAMLWalkFn); err != nil {
+		t.Error(err)
+	}
+	dst := make(map[interface{}]interface{})
+
+	for _, s := range sources {
+		rel, _ := filepath.Rel(path, s.Origin)
+		merger.Origin(s.Data, s.Plugin+":"+rel)
+		merger.Merge(dst, s.Data)
+	}
+
+	data, err := yaml.Marshal(dst)
+	if err != nil {
+		t.Error(err)
+	}
+	fmt.Println(string(data))
 }
