@@ -10,6 +10,9 @@ type Dependency struct {
 }
 
 func (d *Dependency) match(directory string) {
+	if len(directory) == 0 {
+		return
+	}
 	if strings.Contains(directory, d.Dep) {
 		d.Deps = append(d.Deps, directory)
 	}
@@ -20,7 +23,7 @@ func (d *Dependency) match(directory string) {
 
 func Create(directories []string, dependencies []Dependency) *map[string][]string {
 	for _, dir := range directories {
-		for i, _ := range dependencies {
+		for i := range dependencies {
 			dependencies[i].match(dir)
 		}
 	}

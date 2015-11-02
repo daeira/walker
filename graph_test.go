@@ -119,11 +119,6 @@ func TestCreate(t *testing.T) {
 			Dep: "/ddd/hhh/jjj/mmmm",
 		},
 	}
-	for _, f := range list {
-		for i, _ := range deps {
-			deps[i].match(f)
-		}
-	}
 
 	g := Create(list, deps)
 	data, err := yaml.Marshal(&g)
