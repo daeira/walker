@@ -3,98 +3,54 @@ package walker
 import (
 	"errors"
 	"fmt"
-	"strings"
+	"regexp"
 )
 
 type Dependency struct {
-	Dir  string
-	Dep  string
-	Dirs []string
-	Deps []string
+	DirRegexp *regexp.Regexp
+	DepRegexp *regexp.Regexp
+	Dirs      []string
+	Deps      []string
 }
 
 func (d *Dependency) match(directory string) {
 	if len(directory) == 0 {
 		return
 	}
-	if strings.Contains(directory, d.Dep) {
-		d.Deps = append(d.Deps, directory)
-	}
-	if strings.Contains(directory, d.Dir) {
+	if d.DirRegexp.Match([]byte(directory)) {
 		d.Dirs = append(d.Dirs, directory)
+	}
+	if d.DepRegexp.Match([]byte(directory)) {
+		d.Deps = append(d.Deps, directory)
 	}
 }
 
-func Create(directories []string, dependencies []Dependency) *map[string][]string {
+func Create(directories []string, dependencies []Dependency) Graph {
 	for _, dir := range directories {
 		for i := range dependencies {
 			dependencies[i].match(dir)
 		}
 	}
 
-	graph := make(map[string][]string)
-Loop:
+	graph := Graph{}
 	for _, directory := range directories {
-		for _, d := range dependencies {
-			for _, dir := range d.Dirs {
-				if directory == dir {
-					graph[directory] = append(graph[directory], d.Deps...)
-					continue Loop
-				}
-			}
-		}
-		graph[directory] = []string{}
+		graph = append(graph, createDeps(directory, dependencies))
 	}
-	return &graph
+	return graph
 }
 
-type graph map[string][]string
-
-func topSortDFS(g graph) (order, cyclic []string) {
-	L := make([]string, len(g))
-	i := len(L)
-	temp := map[string]bool{}
-	perm := map[string]bool{}
-	var cycleFound bool
-	var cycleStart string
-	var visit func(string)
-	visit = func(n string) {
-		switch {
-		case temp[n]:
-			cycleFound = true
-			cycleStart = n
-			return
-		case perm[n]:
-			return
-		}
-		temp[n] = true
-		for _, m := range g[n] {
-			visit(m)
-			if cycleFound {
-				if cycleStart > "" {
-					cyclic = append(cyclic, n)
-					if n == cycleStart {
-						cycleStart = ""
-					}
-				}
-				return
+func createDeps(directory string, dependencies []Dependency) Node {
+	n := Node{
+		Name: directory,
+	}
+	for _, d := range dependencies {
+		for _, dir := range d.Dirs {
+			if directory == dir {
+				n.Edges = append(n.Edges, d.Deps...)
 			}
 		}
-		delete(temp, n)
-		perm[n] = true
-		i--
-		L[i] = n
 	}
-	for n := range g {
-		if perm[n] {
-			continue
-		}
-		visit(n)
-		if cycleFound {
-			return nil, cyclic
-		}
-	}
-	return L, nil
+	return n
 }
 
 type Node struct {
@@ -102,25 +58,27 @@ type Node struct {
 	Edges []string
 }
 
-type Graph map[string][]string
+type Graph []Node
 
-func (g *Graph) Contains(edges []string) bool {
-	m := *g
-	for node, _ := range m {
-		for _, edge := range edges {
-			if edge == node {
-				return true
-			}
+func (g *Graph) AsMap() map[string][]string {
+	m := map[string][]string{}
+	for _, node := range *g {
+		m[node.Name] = node.Edges
+	}
+	return m
+}
+
+func contains(items []string, m map[string][]string) bool {
+	for _, item := range items {
+		if _, ok := m[item]; ok {
+			return true
 		}
 	}
 	return false
 }
 
-func bla(unsorted []Node) ([]string, error) {
-	unsorted_map := make(map[string][]string)
-	for _, n := range unsorted {
-		unsorted_map[n.Name] = n.Edges
-	}
+func topoSort(g Graph) ([]string, error) {
+	unsorted_map := g.AsMap()
 
 	sorted := []string{}
 	for {
@@ -128,12 +86,11 @@ func bla(unsorted []Node) ([]string, error) {
 			break
 		}
 		acyclic := false
-		fmt.Println(unsorted_map)
-		for _, node := range unsorted {
+		for _, node := range g {
 			if _, ok := unsorted_map[node.Name]; !ok {
 				continue
 			}
-			if contains(unsorted_map, node.Edges) {
+			if len(node.Edges) == 0 || !contains(node.Edges, unsorted_map) {
 				acyclic = true
 				fmt.Println("remove" + node.Name)
 				delete(unsorted_map, node.Name)
@@ -145,18 +102,4 @@ func bla(unsorted []Node) ([]string, error) {
 		}
 	}
 	return sorted, nil
-}
-
-func contains(list map[string][]string, items []string) bool {
-	if len(items) == 0 {
-		return true
-	}
-	for itm, _ := range list {
-		for _, other := range items {
-			if itm == other {
-				return false
-			}
-		}
-	}
-	return true
 }

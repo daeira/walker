@@ -2,6 +2,8 @@ package walker
 
 import (
 	"fmt"
+	"reflect"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -43,61 +45,85 @@ var files = `/application/orbit
 /tools/splunk_masternode
 /tools/keybox
 /tools/splunkforwarder
-/tools/ansible
-`
+/tools/ansible`
 
 func TestCreate(t *testing.T) {
 	list := strings.Split(files, "\n")
 
 	deps := []Dependency{
-	// {
-	// Dir: "/application",
-	// Dep: "/os/",
-	// },
-
-	// {
-	// Dir: "/ddd/hhh/jjj/llll",
-	// Dep: "/ddd/hhh/jjj/mmmm",
-	// },
+		{
+			DirRegexp: regexp.MustCompile(`/os/.*`),
+			DepRegexp: regexp.MustCompile(`/tools/.*`),
+		},
+		{
+			DirRegexp: regexp.MustCompile(`/tools/.*`),
+			DepRegexp: regexp.MustCompile(`/db/.*`),
+		},
+		{
+			DirRegexp: regexp.MustCompile(`/db/.*`),
+			DepRegexp: regexp.MustCompile(`/group/.*`),
+		},
+		{
+			DirRegexp: regexp.MustCompile(`/db/oracle_ggs`),
+			DepRegexp: regexp.MustCompile(`/db/sqoop`),
+		},
 	}
 
 	g := Create(list, deps)
-	data, err := yaml.Marshal(&g)
+	fmt.Println(g)
+	l, err := topoSort(g)
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := yaml.Marshal(g)
 	if err != nil {
 		t.Fatalf("failed to unmarshal %s: %s", "src", err)
 	}
 
-	order, cyclic := topSortDFS(*g)
 	fmt.Println(string(data))
-	fmt.Println(order)
-	fmt.Println(cyclic)
+	fmt.Println(l)
 }
 
-func TestBla(t *testing.T) {
-	data := `---
-- name: 2
-  edges: []
-- name: 5
-  edges: [11]
-- name: 11
-  edges: [2, 9, 10]
-- name: 7
-  edges: [11, 8]
-- name: 9
-  edges: []
-- name: 10
-  edges: []
-- name: 8
-  edges: [9]
-- name: 3
-  edges: [10, 8, 11]
-`
-	nodes := []Node{}
-	if err := yaml.Unmarshal([]byte(data), &nodes); err != nil {
-		t.Fatalf("failed to unmarshal %s: %s", "src", err)
+func TestTopoSort(t *testing.T) {
+	g := Graph{
+		Node{
+			Name: "2",
+		},
+		Node{
+			Name:  "5",
+			Edges: []string{"11"},
+		},
+		Node{
+			Name:  "11",
+			Edges: []string{"2", "9", "10"},
+		},
+		Node{
+			Name:  "7",
+			Edges: []string{"11", "8"},
+		},
+		Node{
+			Name: "9",
+		},
+		Node{
+			Name: "10",
+		},
+		Node{
+			Name:  "8",
+			Edges: []string{"9"},
+		},
+		Node{
+			Name:  "3",
+			Edges: []string{"10", "8", "11"},
+		},
 	}
-	fmt.Println(nodes)
-	l, err := bla(nodes)
-	fmt.Println(err)
-	fmt.Println(l)
+
+	wanted := []string{"2", "9", "10", "8", "11", "7", "3", "5"}
+
+	sorted, err := topoSort(g)
+	if err != nil {
+		t.Errorf("got err %s", err)
+	}
+	if !reflect.DeepEqual(wanted, sorted) {
+		t.Errorf("got sorted list %v, wanted %v", sorted, wanted)
+	}
 }
